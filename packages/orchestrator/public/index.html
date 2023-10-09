@@ -1,0 +1,142 @@
+<!-- I generated this document with chatGPT because it's not really relevant for the assessment 
+It's pretty convenient for testing purpose though.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Uploader</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f8f8f8;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      h1 {
+        color: #333;
+      }
+      table {
+        border-collapse: collapse;
+        width: 80%;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #4caf50;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Upload a Video</h1>
+    <p>
+      The selected video will be uploaded ten times and it will trigger 10 ml
+      pipelines.
+    </p>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+      <label for="video">Choose a video:</label>
+      <input
+        type="file"
+        id="video"
+        name="video"
+        accept="video/*"
+        required
+      /><br /><br />
+      <input type="submit" value="Upload Video" />
+    </form>
+    <p id="loadingMessage" style="display: none">
+      Please wait, it can take a nearly 1 minute before seeing the first results
+    </p>
+
+    <table id="statusTable">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>User ID</th>
+          <th>Training Status</th>
+          <th>Inference Status</th>
+          <th>Created At</th>
+          <th>Updated At</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows will be added here dynamically -->
+      </tbody>
+    </table>
+
+    <script>
+      document
+        .getElementById("uploadForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          document.getElementById("loadingMessage").style.display = "block";
+          const randomUserId = Math.floor(Math.random() * (1000 - 1 + 1)) + 1;
+          const fileInput = document.getElementById("video");
+          if (fileInput.files.length > 0) {
+            // Upload the file 10 times with a 1-second interval
+            for (let i = 0; i < 10; i++) {
+              setTimeout(() => {
+                uploadFile(fileInput.files[0], randomUserId);
+              }, i * 1000);
+            }
+            // Start polling 2 seconds after the last upload
+            setTimeout(() => {
+              setInterval(() => {
+                pollStatus(randomUserId);
+              }, 2000);
+            }, 12000);
+          }
+        });
+
+      function uploadFile(file, userId) {
+        const formData = new FormData();
+        formData.append("video", file);
+        formData.append("userId", userId);
+        fetch("/tmycc", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => console.log("File uploaded:", response.status))
+          .catch((error) => console.error("Upload error:", error));
+      }
+
+      function pollStatus(userId) {
+        fetch(`/tmycc-status/${userId}`)
+          .then((response) => response.json())
+          .then((data) => updateTable(data))
+          .catch((error) => console.error("Polling error:", error));
+      }
+
+      function updateTable(data) {
+        const tbody = document.getElementById("statusTable").tBodies[0];
+        tbody.innerHTML = ""; // Clear the table body
+        data.forEach((item) => {
+          const row = tbody.insertRow();
+          insertCell(row, item.jobId);
+          insertCell(row, item.userId);
+          insertCell(row, item.trainingStatus);
+          insertCell(row, item.inferenceStatus);
+          insertCell(row, new Date(item.createdAt).toLocaleString());
+          insertCell(row, new Date(item.updatedAt).toLocaleString());
+        });
+      }
+
+      function insertCell(row, text) {
+        const cell = row.insertCell();
+        cell.textContent = text;
+      }
+    </script>
+  </body>
+</html>

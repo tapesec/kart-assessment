@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  orchestrator:
+    build:
+      context: ./packages/orchestrator
+      dockerfile: Dockerfile.orchestrator
+    ports:
+      - "80:80"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/
+    depends_on:
+      - redis
+      - localstack
+
+  worker:
+    build:
+      context: ./packages/worker
+      dockerfile: Dockerfile.worker
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - orchestrator
+
+  monitor:
+    build:
+      context: ./packages/monitor
+      dockerfile: Dockerfile.monitor
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/
+    depends_on:
+      - orchestrator
+      - redis
+
+  localstack:
+    container_name: "${LOCALSTACK_DOCKER_NAME-localstack_main}"
+    image: localstack/localstack
+    ports:
+      - "127.0.0.1:4566:4566" # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559" # external services port range
+    environment:
+      - DEBUG=${DEBUG-}
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"
+
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+      ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/
